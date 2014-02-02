@@ -27,7 +27,7 @@
 
 (defn- remove-expectations-ns
 	[namespace-name]
-	(let [exec `'(remove-ns '~namespace-name)]
+	(let [exec `'(when (find-ns '~namespace-name) (remove-ns '~namespace-name))]
 		(pr-str (second exec))))
 
 (def clj-lang (object/create :langs.clj))
@@ -36,7 +36,7 @@
 (defn- append-run-all-tests
 	[editor]
 	(let [curr-ns (-> @editor :info :ns)]
-		(str "(System/getenv \"EXPECTATIONS_COLORIZE\")"
+		(str
 		 		(remove-expectations-ns curr-ns)
 		 		(watches/watched-range
 					editor
@@ -62,14 +62,23 @@
 																		 :ch 0 :start-line (dec (:line result))}]
 														(if (= :success (first (:status result)))
 															(object/raise obj :editor.result "<<< Pass >>>" loc)
-															(object/raise obj :editor.exception (second (:status result)) loc))))
-
-												)
-												)
+															(object/raise obj :editor.exception (second (:status result)) loc)))))))
 
 
-											)
+(defn- eval-expectations
+	[ed]
+	(object/raise clj-lang :eval!
+								{:origin ed
+								 :info (assoc (@ed :info)
+												 :meta {:result-type :expect}
+												 :print-length (object/raise-reduce ed :clojure.print-length+ nil)
+												 :code (append-run-all-tests ed))}))
 
+(behavior ::expect-after-eval
+					:triggers #{:editor.eval.clj.result}
+					:reaction (fn [ed res]
+											(object/rem-behavior! ed ::expect-after-eval)
+											(eval-expectations ed)))
 
 
 (cmd/command {:command ::run-expectations-curr-file
@@ -77,12 +86,9 @@
               :exec (fn []
 											(when-let [ed (editor-pool/last-active)]
 												(object/add-behavior! ed ::expect-result) ;;FIXME: shouldn't have to do this!
-												(object/raise clj-lang :eval!
-											 {:origin ed
-												:info (assoc (@ed :info)
-																:meta {:result-type :expect}
-																:print-length (object/raise-reduce ed :clojure.print-length+ nil)
-																:code (append-run-all-tests ed))})))})
+												(if (-> @ed :info :ns nil?)
+													(do (object/raise ed :eval) (object/add-behavior! ed ::expect-after-eval))
+													(eval-expectations ed))))})
 
 
 
