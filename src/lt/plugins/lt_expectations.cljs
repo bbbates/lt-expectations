@@ -12,7 +12,8 @@
 (defn- run-expectations
 	[namespace-name]
 	(let [exec `'(let [ns-pattern# (re-pattern (str "^" ~(str namespace-name) "$"))]
-								 (with-redefs [expectations/colorize-choice (constantly false)] ;; we don't want the ansi colour symbols in our results
+								 (with-redefs [expectations/colorize-choice (constantly false)
+															 expectations/show-raw-choice (constantly false)] ;; we don't want the ansi colour symbols in our results
 									 (binding [expectations/summary (fn [msg#])
 														 expectations/fail (fn [test-name# test-meta# msg#])]
 										 (expectations/run-all-tests ns-pattern#)
