@@ -12,15 +12,16 @@
 (defn- run-expectations
 	[namespace-name]
 	(let [exec `'(let [ns-pattern# (re-pattern (str "^" ~(str namespace-name) "$"))]
-							 (binding [expectations/summary (fn [msg#] (println "Rebound summary report >>>" msg#))
-												 expectations/fail (fn [test-name# test-meta# msg#] (println "Rebound the fail report>>>>" test-name# "," test-meta# "," msg#))]
-								 (expectations/run-all-tests ns-pattern#)
-								 (->> (symbol '~namespace-name)
-											ns-interns
-											vals
-											(filter #(:expectation (meta %)))
-											(map meta)
-											(map #(assoc % :ns (ns-name (:ns %)))))))] ;; cljs reader can't read namespace objects refs, for obvious reasons
+								 (with-redefs [expectations/colorize-choice (constantly false)] ;; we don't want the ansi colour symbols in our results
+									 (binding [expectations/summary (fn [msg#])
+														 expectations/fail (fn [test-name# test-meta# msg#])]
+										 (expectations/run-all-tests ns-pattern#)
+										 (->> (symbol '~namespace-name)
+													ns-interns
+													vals
+													(filter #(:expectation (meta %)))
+													(map meta)
+													(map #(assoc % :ns (ns-name (:ns %))))))))] ;; cljs reader can't read namespace objects refs, for obvious reasons
 		(pr-str (second exec))))
 
 (defn- remove-expectations-ns
@@ -34,7 +35,8 @@
 (defn- append-run-all-tests
 	[editor]
 	(let [curr-ns (-> @editor :info :ns)]
-		(str (remove-expectations-ns curr-ns)
+		(str "(System/getenv \"EXPECTATIONS_COLORIZE\")"
+		 		(remove-expectations-ns curr-ns)
 		 		(watches/watched-range
 					editor
 					nil
@@ -52,13 +54,14 @@
 (behavior ::expect-result
 					:triggers #{:editor.eval.clj.result.expect}
 					:reaction (fn [obj res]
-											(println ">>>>" (last (:results res)))
+											(println res)
 											(let [expect-results (reader/read-string (:result (last (:results res))))]
 												(doseq [result expect-results]
 													(let [loc {:line (dec (:line result))
 																		 :ch 0 :start-line (dec (:line result))}]
 														(if (= :success (first (:status result)))
-															(object/raise obj :editor.result "pass" loc))))
+															(object/raise obj :editor.result "<<< Pass >>>" loc)
+															(object/raise obj :editor.exception (second (:status result)) loc))))
 
 												)
 												)
