@@ -3,6 +3,7 @@
 						[lt.objs.tabs :as tabs]
 						[lt.objs.command :as cmd]
 						[lt.objs.editor	:as editor]
+						[lt.objs.notifos :as notifos]
 						[lt.plugins.watches :as watches]
 						[lt.objs.editor.pool :as editor-pool]
 						[cljs.reader :as reader])
@@ -32,7 +33,6 @@
 
 (def clj-lang (object/create :langs.clj))
 
-;; TODO: bind our own reporters, and dump out the results we need to be able to inline the results in the editor
 (defn- append-run-all-tests
 	[editor]
 	(let [curr-ns (-> @editor :info :ns)]
@@ -47,23 +47,23 @@
 				 (run-expectations curr-ns))))
 
 
-;;TODO: create macro that binds the fail and summary functions
-;; fail func will add failure details to atomic set
-;; maybe an easier way would be once tests are finished, to look at the metadata that expectations puts on the test vars?
-;; (reader/read-string "({:status [:fail \"[36m(expect 2 (+ 1 1000))\n[0m\n           expected: 2 \n                was: 1001\" 12],  :name G__11007, :expectation true, :column 1, :expectations/run true, :line 12, :file \"/Users/brendan/dev/icm/lt-expectations/test/lt_expectations/test_expects.clj\"} {:status [:success \"\" 6], :name G__10997, :expectation true, :column 1, :expectations/run true, :line 6, :file \"/Users/brendan/dev/icm/lt-expectations/test/lt_expectations/test_expects.clj\"})")
-
 (behavior ::expect-result
 					:triggers #{:editor.eval.clj.result.expect}
+					:desc "Report expectation results to the clojure editor"
 					:reaction (fn [obj res]
-											(println res)
-											(let [expect-results (reader/read-string (:result (last (:results res))))]
+											(let [expect-results (reader/read-string (:result (last (:results res))))
+														failures (filter #(not= :success (first (:status %))) expect-results)
+														passed (filter #(= :success (first (:status %))) expect-results)]
+												(if (seq failures)
+													(notifos/set-msg! (str "Expectation Failures! Failed: " (count failures) ", Passed: " (count passed))
+																						{:class "error"})
+													(notifos/set-msg! "All expectations passed" {:class "result"}))
 												(doseq [result expect-results]
 													(let [loc {:line (dec (:line result))
 																		 :ch 0 :start-line (dec (:line result))}]
 														(if (= :success (first (:status result)))
 															(object/raise obj :editor.result "<<< Pass >>>" loc)
 															(object/raise obj :editor.exception (second (:status result)) loc)))))))
-
 
 (defn- eval-expectations
 	[ed]
@@ -87,16 +87,9 @@
 											(when-let [ed (editor-pool/last-active)]
 												(object/add-behavior! ed ::expect-result) ;;FIXME: shouldn't have to do this!
 												(if (-> @ed :info :ns nil?)
-													(do (object/raise ed :eval) (object/add-behavior! ed ::expect-after-eval))
+													(do (object/raise ed :eval)
+														(object/add-behavior! ed ::expect-after-eval))
 													(eval-expectations ed))))})
 
-
-
-
-
 ;; TODO:
-;; - behaviour for running expects in current file
-;; - show tick next to passed tests
-;; - use notifos? to show test test failure summary
-;; - show failure reason next to failed expect
-;; - obj/raise to show result in editor....see https://github.com/LightTable/Clojure/blob/master/src/lt/plugins/clojure.cljs#L325
+;; - run all expectations in project
