@@ -1,5 +1,5 @@
 {:name "Expectations"
- :version "0.0.1"
+ :version "0.0.2"
  :author "Brendan Bates"
  :source "https://github.com/bbbates/lt-expectations"
  :desc "Expectations (the test library) integration"
