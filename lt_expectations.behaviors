@@ -1,6 +1,6 @@
 {:+ {:app [(:lt.objs.plugins/load-js "lt_expectations_compiled.js" true)]
 
-		 :expectations #{}:lt.plugins.lt-expectations/expect-result
+		 :expectations #{:lt.plugins.lt-expectations/expect-result}
 
      :editor.clj #{(:lt.object/add-tag :expectations)}
 		 }}
