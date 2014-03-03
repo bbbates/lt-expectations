@@ -46,24 +46,49 @@
 								clj-watch))
 				 (run-expectations curr-ns))))
 
+(defn- update-status-bar
+	[failures passed other-results]
+	(let [errors (filter :ex other-results)]
+		(cond
+		 (seq errors) (notifos/set-msg!
+									 (str "✘ Compilation errors found in expectations file.")
+									 {:class "error"})
+		 (and (empty? failures) (empty? passed)) (notifos/set-msg!
+																							(str "✘ No expectations found in file")
+																							{:class "error"})
+		 (seq failures) (notifos/set-msg!
+										 (str "✘ Expectation failures! Failed: " (count failures) ", Passed: " (count passed))
+										 {:class "error"})
+		 :else (notifos/set-msg!
+						"✔︎ All expectations passed"
+						{:class "result"}))))
+
+(defn- handle-other-results
+	[obj other-results]
+	(object/raise obj :editor.eval.clj.result.inline {:results other-results}))
+
+(defn- handle-results
+	[obj res]
+	(let [expect-results (reader/read-string (:result (last (:results res))))
+				other-results (butlast (:results res))
+				failures (filter #(not= :success (first (:status %))) expect-results)
+				passed (filter #(= :success (first (:status %))) expect-results)]
+		(do
+			(handle-other-results obj other-results)
+			(update-status-bar failures passed other-results)
+			(doseq [result expect-results]
+				(let [loc {:line (dec (:line result))
+									 :ch 0 :start-line (dec (:line result))}]
+					(if (= :success (first (:status result)))
+						(object/raise obj :editor.result "✔︎" loc)
+						(object/raise obj :editor.exception (second (:status result)) loc)))))))
+
 
 (behavior ::expect-result
 					:triggers #{:editor.eval.clj.result.expect}
 					:desc "Report expectation results to the clojure editor"
 					:reaction (fn [obj res]
-											(let [expect-results (reader/read-string (:result (last (:results res))))
-														failures (filter #(not= :success (first (:status %))) expect-results)
-														passed (filter #(= :success (first (:status %))) expect-results)]
-												(if (seq failures)
-													(notifos/set-msg! (str "Expectation Failures! Failed: " (count failures) ", Passed: " (count passed))
-																						{:class "error"})
-													(notifos/set-msg! "All expectations passed" {:class "result"}))
-												(doseq [result expect-results]
-													(let [loc {:line (dec (:line result))
-																		 :ch 0 :start-line (dec (:line result))}]
-														(if (= :success (first (:status result)))
-															(object/raise obj :editor.result "<<< Pass >>>" loc)
-															(object/raise obj :editor.exception (second (:status result)) loc)))))))
+											(handle-results obj res)))
 
 (defn- eval-expectations
 	[ed]
