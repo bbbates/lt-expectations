@@ -1,4 +1,4 @@
-{:+ {:app [(:lt.objs.plugins/load-js "expectations_compiled.js" true)]
+{:+ {:app [(:lt.objs.plugins/load-js "lt_expectations_compiled.js" true)]
 
 		 :expectations #{:lt.plugins.lt-expectations/expect-result}
 
