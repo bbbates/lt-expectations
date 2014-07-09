@@ -31,7 +31,7 @@
 	(let [exec `'(when (find-ns '~namespace-name) (remove-ns '~namespace-name))]
 		(pr-str (second exec))))
 
-(def clj-lang (object/create :langs.clj))
+(def clj-lang (object/create :lt.plugins.clojure/langs.clj))
 
 (defn- append-run-all-tests
 	[editor]

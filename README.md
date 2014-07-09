@@ -11,6 +11,10 @@ via Lighttable plugin manager.
 
 Add a keybinding (something like Ctrl-Shift-T) for the command "lt.plugins.lt-expectations/run-expectations-curr-file".
 
+## Changelog
+
+### 0.0.6
+* Make sure plugin works with version Clojure plugin v0.0.12
 
 ## License
 
